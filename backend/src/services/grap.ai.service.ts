@@ -13,20 +13,17 @@ import { mistralModel, cohereModel, geminiModel } from "./ai.service.js";
 import { createAgent, providerStrategy } from "langchain";
 
 const State = new StateSchema({
-  messages: MessagesValue,
-
-  solution_1: new ReducedValue(z.string().default(""), (current, next) => next),
-
-  solution_2: new ReducedValue(z.string().default(""), (current, next) => next),
-
-  judge_recommandation: new ReducedValue(
-    z.object({
-      solution_1_score: z.number().default(0),
-      solution_2_score: z.number().default(0),
-    }),
-    (current, next) => next,
-  ),
+  problem: z.string().default(""),
+  solution_1: z.string().default(""),
+  solution_2: z.string().default(""),
+  judge: z.object({
+    solution_1_score: z.number().default(0),
+    solution_2_score: z.number().default(0),
+    solution_1_reasoning: z.string().default(""),
+    solution_2_reasoning: z.string().default(""),
+  }),
 });
+
 const solutionNode: GraphNode<typeof State> = async (state) => {
   const [mistral_solution, cohere_solution] = await Promise.all([
     mistralModel.invoke([state.messages[0]]),
@@ -75,10 +72,12 @@ const graph = new StateGraph(State)
   .addEdge("judge", END)
   .compile();
 
-export default async function (userMessages: string) {
+export default async function (userMessage: string) {
   const result = await graph.invoke({
-    messages: [new HumanMessage(userMessages)],
+    messages: [new HumanMessage(userMessage)],
   });
+
+  console.log(result);
 
   return result;
 }
