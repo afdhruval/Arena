@@ -1,23 +1,18 @@
 import dotenv from "dotenv";
-
 dotenv.config();
 
-/*
-    GEMINI_API_KEY
-    MISTRAL_API_KEY
-    COHOR_API_KEY
-*/
-
-// type CONFIG = {
-//   readonly GEMINI_API_KEY: string;
-//   readonly MISTRAL_API_KEY: string;
-//   readonly COHOR_API_KEY: string;
-// };
+const required = (key: string): string => {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Missing environment variable: ${key}`);
+  }
+  return value;
+};
 
 const configg = {
-  GEMINI_API_KEY: process.env.GEMINI_API_KEY || " ",
-  MISTRAL_API_KEY: process.env.MISTRAL_API_KEY || " ",
-  COHOR_API_KEY: process.env.COHOR_API_KEY || " ",
+  GEMINI_API_KEY: required("GEMINI_API_KEY"),
+  MISTRAL_API_KEY: required("MISTRAL_API_KEY"),
+  COHERE_API_KEY: required("COHERE_API_KEY"),
 };
 
 export default configg;
