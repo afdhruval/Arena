@@ -82,18 +82,18 @@ const judgeNode: GraphNode<typeof state> = async (state) => {
 
 const graph = new StateGraph(state)
   .addNode("solution", solutionNode)
-  .addNode("judge", judgeNode)
+  .addNode("judge_node", judgeNode)
   .addEdge(START, "solution")
-  .addEdge("solution", "judge")
-  .addEdge("judge", END)
+  .addEdge("solution", "judge_node")
+  .addEdge("judge_node", END)
   .compile();
 
-export default async function (userMessage: string) {
+export default async function (problem: string) {
   const result = await graph.invoke({
-    messages: [new HumanMessage(userMessage)],
+    problem: problem,
   });
 
-  console.log(result);
-
   return result;
+
+  console.log(result);
 }

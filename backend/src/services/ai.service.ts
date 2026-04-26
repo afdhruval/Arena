@@ -4,7 +4,7 @@ import { ChatCohere } from "@langchain/cohere";
 import configg from "../config/config.js";
 
 export const geminiModel = new ChatGoogle({
-  model: "gemini-1.5-flash",
+  model: "gemini-flash-latest",
   apiKey: configg.GEMINI_API_KEY,
 });
 
