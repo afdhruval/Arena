@@ -1,9 +1,7 @@
 import { HumanMessage } from "@langchain/core/messages";
 import {
   StateSchema,
-  MessagesValue,
   StateGraph,
-  ReducedValue,
   type GraphNode,
   START,
   END,
@@ -12,7 +10,7 @@ import { z } from "zod";
 import { mistralModel, cohereModel, geminiModel } from "./ai.service.js";
 import { createAgent, providerStrategy } from "langchain";
 
-const State = new StateSchema({
+const state = new StateSchema({
   problem: z.string().default(""),
   solution_1: z.string().default(""),
   solution_2: z.string().default(""),
@@ -24,19 +22,20 @@ const State = new StateSchema({
   }),
 });
 
-const solutionNode: GraphNode<typeof State> = async (state) => {
-  const [mistral_solution, cohere_solution] = await Promise.all([
-    mistralModel.invoke([state.messages[0]]),
-    cohereModel.invoke([state.messages[0]]),
+const solutionNode: GraphNode<typeof state> = async (state) => {
+  const [mistralResponse, cohoreResponse] = await Promise.all([
+    mistralModel.invoke(state.problem),
+    cohereModel.invoke(state.problem),
   ]);
+
   return {
-    solution_1: mistral_solution.text,
-    solution_2: cohere_solution.text,
+    solution_1: mistralResponse.text,
+    solution_2: cohoreResponse.text,
   };
 };
 
-const judgeNode: GraphNode<typeof State> = async (state: typeof State) => {
-  const { solution_1, solution_2 } = state;
+const judgeNode: GraphNode<typeof state> = async (state) => {
+  const { solution_1, solution_2, problem } = state;
 
   const judge = createAgent({
     model: geminiModel,
