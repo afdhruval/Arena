@@ -1,147 +1,236 @@
-import React from 'react'
+import React, { useState } from 'react'
 
-const ResponseRenderer = ({ text }) => {
+/* ── Markdown-lite renderer ── */
+function ResponseRenderer({ text }) {
+  if (!text) return null
   const lines = text.split('\n')
   const segments = []
-  let inCode = false
-  let codeLang = ''
-  let codeLines = []
-  let paraLines = []
+  let inCode = false, codeLang = '', codeLines = [], paraLines = []
 
   const flushPara = () => {
-    if (paraLines.length) {
-      segments.push({ type: 'text', content: paraLines.join('\n') })
-      paraLines = []
-    }
+    if (paraLines.length) { segments.push({ type: 'text', content: paraLines.join('\n') }); paraLines = [] }
   }
-
   lines.forEach(line => {
     if (line.startsWith('```')) {
-      if (!inCode) {
-        flushPara()
-        codeLang = line.slice(3).trim() || 'code'
-        inCode = true
-        codeLines = []
-      } else {
-        segments.push({ type: 'code', lang: codeLang, content: codeLines.join('\n') })
-        inCode = false
-        codeLines = []
-        codeLang = ''
-      }
-    } else if (inCode) {
-      codeLines.push(line)
-    } else {
-      paraLines.push(line)
-    }
+      if (!inCode) { flushPara(); codeLang = line.slice(3).trim() || 'code'; inCode = true; codeLines = [] }
+      else { segments.push({ type: 'code', lang: codeLang, content: codeLines.join('\n') }); inCode = false; codeLines = []; codeLang = '' }
+    } else if (inCode) codeLines.push(line)
+    else paraLines.push(line)
   })
-
-  if (inCode && codeLines.length) {
-    segments.push({ type: 'code', lang: codeLang, content: codeLines.join('\n') })
-  }
+  if (inCode) segments.push({ type: 'code', lang: codeLang, content: codeLines.join('\n') })
   flushPara()
 
   return (
-    <div className="space-y-3 text-sm leading-relaxed">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13, lineHeight: 1.65 }}>
       {segments.map((seg, i) => {
         if (seg.type === 'code') {
           return (
-            <div key={i} className="rounded-lg overflow-hidden border border-[#2a2a3a]">
-              <div className="flex items-center justify-between px-4 py-2 bg-[#0f0f13] border-b border-[#2a2a3a]">
-                <span className="text-[10px] uppercase tracking-widest text-violet-400 font-mono font-semibold">{seg.lang}</span>
-                <div className="flex gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
+            <div key={i} style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '6px 12px', background: 'var(--bg-base)', borderBottom: '1px solid var(--border)',
+              }}>
+                <span style={{ fontSize: 11, color: '#5865f2', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{seg.lang}</span>
+                <div style={{ display: 'flex', gap: 5 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f57' }} />
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#febc2e' }} />
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#28c840' }} />
                 </div>
               </div>
-              <pre className="px-4 py-3 text-xs font-mono text-[#c9d1d9] overflow-x-auto bg-[#0d0d11] leading-relaxed">{seg.content}</pre>
+              <pre style={{ margin: 0, borderRadius: 0, border: 'none' }}>{seg.content}</pre>
             </div>
           )
         }
-        return seg.content.split('\n').filter(l => l.trim()).map((para, j) => (
-          <p key={`${i}-${j}`} className="text-[#c9c9e0]">{para}</p>
-        ))
+        return seg.content.split('\n').filter(l => l.trim()).map((para, j) => {
+          // Handle **bold** inline
+          const parts = para.split(/(\*\*[^*]+\*\*)/g)
+          return (
+            <p key={`${i}-${j}`} style={{ color: 'var(--text-primary)' }}>
+              {parts.map((p, k) =>
+                p.startsWith('**') && p.endsWith('**')
+                  ? <strong key={k}>{p.slice(2, -2)}</strong>
+                  : p
+              )}
+            </p>
+          )
+        })
       })}
     </div>
   )
 }
 
-const ScoreBar = ({ score }) => {
+/* ── Score bar ── */
+function ScoreBar({ score }) {
   const pct = (score / 10) * 100
-  const color = score >= 8 ? '#22c55e' : score >= 6 ? '#a78bfa' : '#f59e0b'
+  const color = score >= 8 ? '#22c55e' : score >= 6 ? '#5865f2' : '#f59e0b'
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-[#2a2a3a] rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-1000 ease-out"
-          style={{ width: `${pct}%`, background: color }}
-        />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ flex: 1, height: 3, borderRadius: 2, background: 'var(--border)' }}>
+        <div style={{ width: `${pct}%`, height: '100%', borderRadius: 2, background: color, transition: 'width 1s ease' }} />
       </div>
-      <span className="text-xs font-bold tabular-nums" style={{ color }}>{score}/10</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color, minWidth: 32, textAlign: 'right' }}>{score}/10</span>
     </div>
   )
 }
 
-const ModelCard = ({ model, label, subLabel, score, icon, isLoading, response }) => {
+/* ── Main ModelCard ── */
+export default function ModelCard({ model, label, subLabel, score, icon, isLoading, response, onRefresh }) {
   const isA = model === 'a'
-  const accentColor = isA ? 'violet' : 'cyan'
+  const [copied, setCopied] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+
+  const handleCopy = () => {
+    if (!response) return
+    navigator.clipboard.writeText(response).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const labelText = isA ? 'Assistant A' : 'Assistant B'
 
   return (
-    <div className={`flex flex-col rounded-2xl border bg-[#16161d] overflow-hidden slide-up ${
-      isA ? 'border-violet-500/20' : 'border-cyan-500/20'
-    }`}>
-      {/* Header */}
-      <div className={`flex items-center justify-between px-5 py-4 border-b ${
-        isA ? 'border-violet-500/10 bg-violet-600/5' : 'border-cyan-500/10 bg-cyan-600/5'
-      }`}>
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${
-            isA ? 'bg-violet-600/20 border border-violet-500/30' : 'bg-cyan-600/20 border border-cyan-500/30'
-          }`}>
-            {icon}
-          </div>
-          <div>
-            <div className="font-semibold text-sm text-[#e2e2f0]">{label}</div>
-            <div className="text-[11px] text-[#8888aa]">{subLabel}</div>
-          </div>
+    <div
+      className="fade-in"
+      style={{
+        display: 'flex', flexDirection: 'column',
+        background: 'var(--bg-panel)',
+        border: '1px solid var(--border)',
+        borderRadius: 12, overflow: 'hidden',
+        flex: 1, minWidth: 0,
+        ...(expanded ? { position: 'fixed', inset: 60, zIndex: 200, borderRadius: 12 } : {}),
+      }}
+    >
+      {/* Header: "Assistant A" / icons */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 14px',
+        borderBottom: '1px solid var(--border)',
+        background: 'var(--bg-card)',
+        flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            fontSize: 12, fontWeight: 600,
+            color: isA ? '#a78bfa' : '#38bdf8',
+            background: isA ? 'rgba(167,139,250,0.1)' : 'rgba(56,189,248,0.1)',
+            padding: '2px 8px', borderRadius: 20,
+            border: `1px solid ${isA ? 'rgba(167,139,250,0.25)' : 'rgba(56,189,248,0.25)'}`,
+          }}>
+            {labelText}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 400 }}>
+            {label}
+          </span>
+          {score != null && !isLoading && (
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
+              background: 'var(--bg-active)', color: 'var(--text-secondary)',
+              border: '1px solid var(--border)',
+            }}>
+              {score}/10
+            </span>
+          )}
         </div>
-        {score != null && !isLoading ? (
-          <div className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-            isA ? 'bg-violet-600/20 text-violet-300 border border-violet-500/30' : 'bg-cyan-600/20 text-cyan-300 border border-cyan-500/30'
-          }`}>
-            {score}/10
-          </div>
-        ) : (
-          <div className="px-2.5 py-1 rounded-lg text-xs text-[#555570] bg-[#1e1e2a] border border-[#2a2a3a]">
-            —
-          </div>
-        )}
+
+        {/* Action icons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {/* Refresh */}
+          <ActionBtn
+            icon={<RefreshIcon />}
+            title="Regenerate"
+            onClick={onRefresh}
+            disabled={isLoading}
+          />
+          {/* Copy */}
+          <ActionBtn
+            icon={copied ? <span style={{ fontSize: 11 }}>✓</span> : <CopyIcon />}
+            title={copied ? 'Copied!' : 'Copy'}
+            onClick={handleCopy}
+            disabled={!response || isLoading}
+          />
+          {/* Expand */}
+          <ActionBtn
+            icon={expanded ? <CollapseIcon /> : <ExpandIcon />}
+            title={expanded ? 'Collapse' : 'Expand'}
+            onClick={() => setExpanded(v => !v)}
+          />
+        </div>
       </div>
 
-      {/* Score bar (only after result) */}
-      {score != null && !isLoading && (
-        <div className="px-5 py-2 border-b border-[#2a2a3a]">
-          <ScoreBar score={score} />
-        </div>
-      )}
+      {/* Score bar */}
+      {score != null && !isLoading && <ScoreBar score={score} />}
 
       {/* Body */}
-      <div className="flex-1 px-5 py-4 overflow-y-auto max-h-96">
+      <div style={{
+        flex: 1, overflowY: 'auto', padding: '16px',
+        maxHeight: expanded ? 'none' : 400,
+      }}>
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center gap-4 py-8 text-[#555570]">
-            <div className="dot-pulse flex gap-2">
-              <span /><span /><span />
-            </div>
-            <span className="text-xs">Generating response…</span>
+          <div style={{ color: 'var(--text-dim)', fontSize: 13, animation: 'pulse 1.5s infinite ease-in-out' }}>
+            Generating...
           </div>
         ) : response ? (
           <ResponseRenderer text={response} />
         ) : (
-          <p className="text-[#555570] text-sm italic text-center py-8">Awaiting battle prompt…</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 120, color: 'var(--text-dim)', fontSize: 12, fontStyle: 'italic' }}>
+            Awaiting prompt…
+          </div>
         )}
       </div>
     </div>
   )
 }
 
-export default ModelCard
+function ActionBtn({ icon, title, onClick, disabled }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: 28, height: 28, borderRadius: 6, border: 'none',
+        background: hov && !disabled ? 'var(--bg-hover)' : 'transparent',
+        color: disabled ? 'var(--text-dim)' : hov ? 'var(--text-primary)' : 'var(--text-secondary)',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.1s', flexShrink: 0,
+      }}
+    >
+      {icon}
+    </button>
+  )
+}
+
+function RefreshIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <path d="M11 6.5A4.5 4.5 0 1 1 7.5 2.1" />
+      <path d="M7.5 1v3h3" />
+    </svg>
+  )
+}
+function CopyIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <rect x="4" y="4" width="8" height="8" rx="1.5"/>
+      <path d="M2.5 9H2A1.5 1.5 0 0 1 .5 7.5V2A1.5 1.5 0 0 1 2 .5h5.5A1.5 1.5 0 0 1 9 2v.5"/>
+    </svg>
+  )
+}
+function ExpandIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <path d="M8 1h4v4M5 12H1V8M12 1L7.5 5.5M1 12l4.5-4.5"/>
+    </svg>
+  )
+}
+function CollapseIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <path d="M12 5H8V1M1 8h4v4M8 5L12 1M1 12l4-4"/>
+    </svg>
+  )
+}

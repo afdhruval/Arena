@@ -1,129 +1,398 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { getSessions } from '../store/chatStore'
 
-const SUGGESTIONS = [
-  'Write a React hook for WebSocket connections',
-  'Explain quicksort with code',
-  'Build a REST API in Python Flask',
-  'Optimize a slow SQL query',
-  'Write a binary search in TypeScript',
-]
+/* Arena.ai‑style sidebar:
+   Top: New Chat, Leaderboard, Search
+   Mid: "Today" history section with chat entries
+   Bot: Account panel
+*/
+export default function Sidebar({
+  collapsed, onToggleCollapse,
+  activeSessions, currentSessionId,
+  onSessionSelect, onNewChat,
+}) {
+  const { user, isLoggedIn, logout, theme, toggleTheme, canPrompt, promptsLeft, FREE_LIMIT } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
 
-const Sidebar = ({ onSubmit, isLoading, history }) => {
-  const [input, setInput] = useState('')
-  const textareaRef = useRef(null)
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit()
-    }
-  }
-
-  const handleSubmit = () => {
-    const trimmed = input.trim()
-    if (!trimmed || isLoading) return
-    onSubmit(trimmed)
-    setInput('')
-  }
+  const [sessions, setSessions] = useState([])
+  const [searchQ, setSearchQ] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
+  const [showAccountMenu, setShowAccountMenu] = useState(false)
+  const accountRef = useRef(null)
+  const searchRef = useRef(null)
 
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px'
+    setSessions(getSessions())
+  }, [activeSessions, currentSessionId])
+
+  useEffect(() => {
+    const h = (e) => {
+      if (accountRef.current && !accountRef.current.contains(e.target)) setShowAccountMenu(false)
     }
-  }, [input])
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  useEffect(() => {
+    if (showSearch && searchRef.current) searchRef.current.focus()
+  }, [showSearch])
+
+  const filtered = sessions.filter(s => {
+    if (!searchQ.trim()) return true
+    const q = searchQ.toLowerCase()
+    return s.prompt?.toLowerCase().includes(q) || s.modelA?.toLowerCase().includes(q) || s.modelB?.toLowerCase().includes(q)
+  })
+
+  const grouped = (() => {
+    const today = [], yesterday = [], older = []
+    const now = Date.now()
+    filtered.forEach(s => {
+      const age = now - new Date(s.createdAt).getTime()
+      if (age < 86400000) today.push(s)
+      else if (age < 172800000) yesterday.push(s)
+      else older.push(s)
+    })
+    return { Today: today, Yesterday: yesterday, Earlier: older }
+  })()
+
+  const isLeaderboard = location.pathname === '/leaderboard'
+
+  /* ── Collapsed state ── */
+  if (collapsed) {
+    return (
+      <aside style={{
+        width: 48, flexShrink: 0,
+        borderRight: '1px solid var(--border)',
+        background: 'var(--bg-sidebar)',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', paddingTop: 8, gap: 4,
+        height: '100%', overflow: 'hidden',
+        transition: 'width 0.2s ease',
+      }}>
+        <IconBtn icon="✦" title="New Chat" onClick={() => { navigate('/dashboard'); onNewChat?.() }} />
+        <IconBtn icon="🏆" title="Leaderboard" onClick={() => navigate('/leaderboard')} active={isLeaderboard} />
+        <IconBtn icon="🔍" title="Search" onClick={() => { onToggleCollapse(); setShowSearch(true) }} />
+        <div style={{ flex: 1 }} />
+        <Avatar user={user} size={30} onClick={() => setShowAccountMenu(v => !v)} style={{ marginBottom: 8 }} />
+      </aside>
+    )
+  }
 
   return (
-    <aside className="flex flex-col w-72 shrink-0 border-r border-[#2a2a3a] bg-[#0f0f13] h-full overflow-hidden">
-      {/* Header */}
-      <div className="px-4 pt-5 pb-3">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-xs font-semibold tracking-widest uppercase text-[#8888aa]">Neural Link Active</span>
-        </div>
-        <p className="text-[11px] text-[#555570] mt-1">Prompt history</p>
-      </div>
+    <aside
+      className="slide-in-left"
+      style={{
+        width: 240, flexShrink: 0,
+        borderRight: '1px solid var(--border)',
+        background: 'var(--bg-sidebar)',
+        display: 'flex', flexDirection: 'column',
+        height: '100%', overflow: 'hidden',
+        transition: 'width 0.2s ease',
+      }}
+    >
+      {/* ── Top Nav ── */}
+      <div style={{ padding: '8px 8px 4px' }}>
 
-      {/* History list */}
-      <div className="flex-1 overflow-y-auto px-3 pb-2 space-y-1">
-        {history.length === 0 ? (
-          <div className="mt-6 text-center text-[#555570] text-xs leading-relaxed px-2">
-            <div className="text-2xl mb-2">⚔️</div>
-            No battles yet.<br />Send your first prompt!
+        {/* New Chat */}
+        <NavItem
+          icon={<PlusIcon />}
+          label="New Chat"
+          id="new-chat-btn"
+          onClick={() => { navigate('/dashboard'); onNewChat?.() }}
+        />
+
+        {/* Leaderboard */}
+        <NavItem
+          icon={<span style={{ fontSize: 14 }}>🏆</span>}
+          label="Leaderboard"
+          id="nav-leaderboard"
+          active={isLeaderboard}
+          onClick={() => navigate('/leaderboard')}
+        />
+
+        {/* Search */}
+        <NavItem
+          icon={<SearchIcon />}
+          label="Search"
+          id="nav-search"
+          active={showSearch}
+          onClick={() => setShowSearch(v => !v)}
+        />
+
+        {/* Search Box */}
+        {showSearch && (
+          <div className="fade-in" style={{ marginTop: 4, position: 'relative' }}>
+            <input
+              ref={searchRef}
+              id="sidebar-search"
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+              placeholder="Search chats…"
+              style={{
+                width: '100%', padding: '7px 28px 7px 10px',
+                borderRadius: 7, border: '1px solid var(--border)',
+                background: 'var(--bg-input)', color: 'var(--text-primary)',
+                fontSize: 12, outline: 'none',
+              }}
+              onFocus={e => e.currentTarget.style.borderColor = '#5865f2'}
+              onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
+            />
+            {searchQ && (
+              <button onClick={() => setSearchQ('')} style={{
+                position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 12,
+              }}>✕</button>
+            )}
           </div>
-        ) : (
-          history.map((item, i) => (
-            <button
-              key={i}
-              onClick={() => onSubmit(item.prompt)}
-              disabled={isLoading}
-              className={`w-full text-left px-3 py-2.5 rounded-lg text-xs leading-relaxed transition-all duration-200 group ${
-                i === 0
-                  ? 'bg-violet-600/20 border border-violet-500/30 text-violet-300'
-                  : 'text-[#8888aa] hover:bg-[#1e1e2a] hover:text-[#e2e2f0] border border-transparent'
-              }`}
-            >
-              <span className="block truncate">
-                {item.prompt.length > 65 ? item.prompt.slice(0, 65) + '…' : item.prompt}
-              </span>
-              <span className={`text-[10px] mt-0.5 block ${i === 0 ? 'text-violet-400/60' : 'text-[#555570]'}`}>
-                {item.time}
-              </span>
-            </button>
-          ))
         )}
       </div>
 
-      {/* Suggestions */}
-      {history.length === 0 && (
-        <div className="px-3 pb-3 space-y-1">
-          <p className="text-[10px] uppercase tracking-widest text-[#555570] px-1 mb-2">Try these</p>
-          {SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              onClick={() => setInput(s)}
-              className="w-full text-left px-3 py-2 rounded-lg text-[11px] text-[#8888aa] hover:text-violet-300 hover:bg-violet-600/10 border border-transparent hover:border-violet-500/20 transition-all duration-200 truncate"
-            >
-              {s}
+      {/* ── Free prompts bar (guest) ── */}
+      {!isLoggedIn && (
+        <div style={{ margin: '4px 8px 0', padding: '8px 10px', borderRadius: 8, background: 'var(--bg-active)', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Free battles left</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: promptsLeft === 0 ? '#ef4444' : '#5865f2' }}>
+              {promptsLeft}/{FREE_LIMIT}
+            </span>
+          </div>
+          <div style={{ height: 3, borderRadius: 2, background: 'var(--border)' }}>
+            <div style={{
+              height: '100%', borderRadius: 2,
+              width: `${(promptsLeft / FREE_LIMIT) * 100}%`,
+              background: promptsLeft === 0 ? '#ef4444' : '#5865f2',
+              transition: 'width 0.4s ease',
+            }} />
+          </div>
+          {promptsLeft === 0 && (
+            <button onClick={() => navigate('/login')} style={{
+              marginTop: 6, width: '100%', padding: '5px', borderRadius: 5,
+              border: 'none', background: '#5865f2', color: '#fff',
+              fontSize: 11, fontWeight: 600, cursor: 'pointer',
+            }}>
+              Sign in for unlimited →
             </button>
-          ))}
+          )}
         </div>
       )}
 
-      {/* Input area */}
-      <div className="p-3 border-t border-[#2a2a3a]">
-        <div className="rounded-xl border border-[#2a2a3a] bg-[#16161d] focus-within:border-violet-500/50 focus-within:shadow-[0_0_16px_rgba(124,58,237,0.15)] transition-all duration-200">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="What should the AI models battle about? (Enter to send)"
-            disabled={isLoading}
-            rows={3}
-            className="w-full bg-transparent px-3 pt-3 pb-1 text-sm text-[#e2e2f0] placeholder-[#555570] resize-none outline-none max-h-40"
-          />
-          <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
-            <span className="text-[10px] text-[#555570]">Shift+Enter for newline</span>
-            <button
-              onClick={handleSubmit}
-              disabled={!input.trim() || isLoading}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-500 hover:to-cyan-500 text-white shadow-md hover:shadow-violet-500/30"
-            >
-              {isLoading ? (
-                <>
-                  <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
-                  Fighting…
-                </>
-              ) : (
-                <>⚡ Battle</>
-              )}
-            </button>
+      <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />
+
+      {/* ── Chat History ── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 4px' }}>
+        {Object.entries(grouped).map(([group, items]) => items.length === 0 ? null : (
+          <div key={group}>
+            <div style={{ padding: '4px 8px 2px', fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', letterSpacing: '0.3px' }}>
+              {group}
+            </div>
+            {items.map(s => (
+              <HistoryItem
+                key={s.id}
+                session={s}
+                active={s.id === currentSessionId}
+                onClick={() => { navigate('/dashboard'); onSessionSelect?.(s) }}
+              />
+            ))}
           </div>
-        </div>
+        ))}
+
+        {filtered.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-dim)', fontSize: 12 }}>
+            {showSearch && searchQ ? 'No matching chats' : 'No battle history yet'}
+          </div>
+        )}
+      </div>
+
+      {/* ── Account Panel ── */}
+      <div style={{ borderTop: '1px solid var(--border)', padding: '6px 8px' }} ref={accountRef}>
+        {/* Dropdown */}
+        {showAccountMenu && (
+          <div
+            className="scale-in"
+            style={{
+              position: 'absolute', bottom: 'calc(100% + 6px)', left: 8, right: 8,
+              background: 'var(--bg-panel)',
+              border: '1px solid var(--border)',
+              borderRadius: 10, boxShadow: '0 -8px 24px rgba(0,0,0,0.4)',
+              overflow: 'hidden', padding: '4px', zIndex: 100,
+            }}
+          >
+            <MenuRow icon="🌙" label={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`} onClick={() => { toggleTheme(); setShowAccountMenu(false) }} />
+            {isLoggedIn
+              ? <MenuRow icon="🚪" label="Logout" red onClick={() => { logout(); navigate('/login'); setShowAccountMenu(false) }} />
+              : <MenuRow icon="🔑" label="Sign In" onClick={() => { navigate('/login'); setShowAccountMenu(false) }} />
+            }
+          </div>
+        )}
+
+        <button
+          id="account-btn"
+          onClick={() => setShowAccountMenu(v => !v)}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+            padding: '6px 8px', borderRadius: 8, border: 'none',
+            background: 'transparent', cursor: 'pointer', textAlign: 'left',
+            transition: 'background 0.1s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        >
+          <Avatar user={user} size={28} />
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {user?.name || 'Guest'}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {user?.email || 'Not signed in'}
+            </div>
+          </div>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="var(--text-dim)">
+            <path d="M6 4L2 8h8L6 4z"/>
+          </svg>
+        </button>
       </div>
     </aside>
   )
 }
 
-export default Sidebar
+/* ── Sub-components ─────────────────────────────────────────── */
+
+function NavItem({ icon, label, onClick, active, id }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <button
+      id={id}
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+        padding: '7px 8px', borderRadius: 7, border: 'none',
+        background: active ? 'var(--bg-active)' : hov ? 'var(--bg-hover)' : 'transparent',
+        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+        fontSize: 13, fontWeight: active ? 600 : 400,
+        cursor: 'pointer', textAlign: 'left',
+        transition: 'all 0.1s',
+      }}
+    >
+      <span style={{ width: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{icon}</span>
+      {label}
+    </button>
+  )
+}
+
+function HistoryItem({ session, active, onClick }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'flex-start',
+        padding: '5px 8px', borderRadius: 7, border: 'none',
+        background: active ? 'var(--bg-active)' : hov ? 'var(--bg-hover)' : 'transparent',
+        cursor: 'pointer', textAlign: 'left', transition: 'background 0.1s',
+      }}
+    >
+      <div style={{ overflow: 'hidden', width: '100%' }}>
+        <div style={{
+          fontSize: 12, fontWeight: active ? 500 : 400,
+          color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {session.prompt?.length > 45 ? session.prompt.slice(0, 45) + '…' : session.prompt}
+        </div>
+        {active && session.vote && (
+          <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 1 }}>✓ voted</div>
+        )}
+      </div>
+    </button>
+  )
+}
+
+function MenuRow({ icon, label, onClick, red }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+        padding: '7px 10px', borderRadius: 6, border: 'none',
+        background: hov ? 'var(--bg-hover)' : 'transparent',
+        color: red ? '#ef4444' : 'var(--text-primary)',
+        fontSize: 13, cursor: 'pointer', textAlign: 'left',
+      }}
+    >
+      <span>{icon}</span> {label}
+    </button>
+  )
+}
+
+function IconBtn({ icon, title, onClick, active }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: 32, height: 32, borderRadius: 7, border: 'none',
+        background: active ? 'var(--bg-active)' : hov ? 'var(--bg-hover)' : 'transparent',
+        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+        cursor: 'pointer', fontSize: 14,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >{icon}</button>
+  )
+}
+
+function Avatar({ user, size = 28, onClick, style: extraStyle }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        width: size, height: size, borderRadius: '50%', flexShrink: 0,
+        overflow: 'hidden', border: '1.5px solid var(--border-light)',
+        cursor: onClick ? 'pointer' : 'default',
+        ...extraStyle,
+      }}
+    >
+      {user?.photoURL ? (
+        <img src={user.photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        <div style={{
+          width: '100%', height: '100%',
+          background: 'linear-gradient(135deg, #5865f2, #9b59b6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontWeight: 700, fontSize: size * 0.4,
+        }}>
+          {user?.name?.[0] || 'G'}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* Icons */
+function PlusIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+      <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  )
+}
+function SearchIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <circle cx="6" cy="6" r="4.5"/>
+      <path d="M10 10l2.5 2.5"/>
+    </svg>
+  )
+}

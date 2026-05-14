@@ -1,48 +1,38 @@
 import React from 'react'
 
-const ScoreCircle = ({ score, label, color }) => {
-  const r = 28
-  const circ = 2 * Math.PI * r
+function ScoreCircle({ score, color }) {
+  const r = 24, circ = 2 * Math.PI * r
   const offset = circ - (score / 10) * circ
-
   return (
-    <div className="flex flex-col items-center gap-2">
-      <svg width="72" height="72" viewBox="0 0 72 72">
-        <circle cx="36" cy="36" r={r} fill="none" stroke="#2a2a3a" strokeWidth="5" />
-        <circle
-          cx="36" cy="36" r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
-          transform="rotate(-90 36 36)"
-          style={{ transition: 'stroke-dashoffset 1s cubic-bezier(0.16,1,0.3,1)' }}
-        />
-        <text x="36" y="40" textAnchor="middle" fill={color} fontSize="14" fontWeight="700" fontFamily="Inter,sans-serif">
-          {score}
-        </text>
-      </svg>
-      <span className="text-[11px] text-[#8888aa] font-medium">{label}</span>
-    </div>
+    <svg width="60" height="60" viewBox="0 0 60 60">
+      <circle cx="30" cy="30" r={r} fill="none" stroke="var(--border)" strokeWidth="4" />
+      <circle cx="30" cy="30" r={r} fill="none" stroke={color} strokeWidth="4"
+        strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
+        transform="rotate(-90 30 30)"
+        style={{ transition: 'stroke-dashoffset 0.9s ease' }}
+      />
+      <text x="30" y="35" textAnchor="middle" fill={color} fontSize="13" fontWeight="700" fontFamily="Inter,sans-serif">{score}</text>
+    </svg>
   )
 }
 
-const JudgeVerdict = ({ verdict, isLoading }) => {
+export default function JudgeVerdict({ verdict, isLoading }) {
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-amber-500/20 bg-[#16161d] p-6 slide-in mt-4">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-lg">⚖️</div>
+      <div className="fade-in" style={{
+        borderRadius: 12, border: '1px solid var(--border)',
+        background: 'var(--bg-panel)', padding: '16px 20px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <span style={{ fontSize: 16 }}>⚖️</span>
           <div>
-            <div className="font-semibold text-[#e2e2f0] text-sm">Judge's Verdict</div>
-            <div className="text-[11px] text-[#8888aa]">Powered by Gemini 1.5 Flash</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>AI Judge</div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Powered by Gemini Flash</div>
           </div>
         </div>
-        <div className="flex items-center gap-3 py-4 text-[#8888aa] text-sm">
-          <span className="w-5 h-5 border border-amber-400/40 border-t-amber-400 rounded-full animate-spin shrink-0" />
-          Evaluating both responses… The Judge is deliberating.
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', fontSize: 12 }}>
+          <div className="spinner" style={{ width: 14, height: 14 }} />
+          Evaluating responses…
         </div>
       </div>
     )
@@ -52,72 +42,70 @@ const JudgeVerdict = ({ verdict, isLoading }) => {
 
   const winnerIsA = verdict.winner === 'A'
   const winnerLabel = winnerIsA ? 'Mistral AI' : 'Cohere AI'
-  const winnerIcon = winnerIsA ? '🤖' : '🚀'
 
   return (
-    <div className="rounded-2xl border border-[#2a2a3a] bg-[#16161d] overflow-hidden mt-4 slide-up fade-in">
+    <div className="fade-in" style={{
+      borderRadius: 12, border: '1px solid var(--border)',
+      background: 'var(--bg-panel)', overflow: 'hidden',
+    }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a3a] bg-gradient-to-r from-[#1a1a26] to-[#16161d]">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-lg">⚖️</div>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 16px', borderBottom: '1px solid var(--border)',
+        background: 'var(--bg-card)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 16 }}>⚖️</span>
           <div>
-            <div className="font-semibold text-[#e2e2f0] text-sm">Judge's Verdict</div>
-            <div className="text-[11px] text-[#8888aa]">Powered by Gemini 1.5 Flash</div>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>AI Judge's Verdict</span>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>Gemini Flash</span>
           </div>
         </div>
-        <div className={`px-3 py-1.5 rounded-full text-xs font-bold border ${
-          winnerIsA
-            ? 'bg-violet-600/20 border-violet-500/40 text-violet-300'
-            : 'bg-cyan-600/20 border-cyan-500/40 text-cyan-300'
-        }`}>
-          {winnerIcon} {winnerLabel} Wins!
+        <div style={{
+          padding: '3px 10px', borderRadius: 20,
+          fontSize: 12, fontWeight: 600,
+          background: winnerIsA ? 'rgba(167,139,250,0.15)' : 'rgba(56,189,248,0.15)',
+          color: winnerIsA ? '#a78bfa' : '#38bdf8',
+          border: `1px solid ${winnerIsA ? 'rgba(167,139,250,0.3)' : 'rgba(56,189,248,0.3)'}`,
+        }}>
+          🏆 {winnerLabel} Wins
         </div>
       </div>
 
-      {/* Score circles + analysis grid */}
-      <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Model A Analysis */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-violet-400" />
-            <span className="text-xs font-semibold text-violet-300 uppercase tracking-wider">Mistral AI</span>
+      {/* Body: 3-column */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 0, padding: '20px' }}>
+        {/* Model A */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#a78bfa' }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 0.5 }}>Mistral AI</span>
           </div>
-          <ScoreCircle score={verdict.scoreA} label={`Score: ${verdict.scoreA}/10`} color="#a78bfa" />
-          <p className="text-xs text-[#c9c9e0] leading-relaxed">{verdict.analysisA}</p>
+          <ScoreCircle score={verdict.scoreA} color="#a78bfa" />
+          <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{verdict.analysisA}</p>
         </div>
 
-        {/* Winner banner (center) */}
-        <div className="flex flex-col items-center justify-center text-center gap-3 py-2">
-          <div className="text-4xl">🏆</div>
-          <div className={`font-bold text-lg ${winnerIsA ? 'text-gradient' : 'text-gradient'}`}>
-            {winnerLabel}
-          </div>
-          <div className="text-[11px] text-[#8888aa] leading-relaxed max-w-[180px]">
-            {verdict.reason}
-          </div>
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className="text-[10px] font-semibold text-violet-400 px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20">
-              {verdict.scoreA}/10
-            </span>
-            <span className="text-[10px] text-[#555570]">vs</span>
-            <span className="text-[10px] font-semibold text-cyan-400 px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
-              {verdict.scoreB}/10
-            </span>
+        {/* Center */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 28px' }}>
+          <div style={{ fontSize: 28 }}>🏆</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', textAlign: 'center' }}>{winnerLabel}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', lineHeight: 1.5, maxWidth: 140 }}>{verdict.reason}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', padding: '2px 8px', borderRadius: 20, background: 'rgba(167,139,250,0.1)' }}>{verdict.scoreA}/10</span>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>vs</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#38bdf8', padding: '2px 8px', borderRadius: 20, background: 'rgba(56,189,248,0.1)' }}>{verdict.scoreB}/10</span>
           </div>
         </div>
 
-        {/* Model B Analysis */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-cyan-400" />
-            <span className="text-xs font-semibold text-cyan-300 uppercase tracking-wider">Cohere AI</span>
+        {/* Model B */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end', textAlign: 'right' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Cohere AI</span>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#38bdf8' }} />
           </div>
-          <ScoreCircle score={verdict.scoreB} label={`Score: ${verdict.scoreB}/10`} color="#06b6d4" />
-          <p className="text-xs text-[#c9c9e0] leading-relaxed">{verdict.analysisB}</p>
+          <ScoreCircle score={verdict.scoreB} color="#38bdf8" />
+          <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{verdict.analysisB}</p>
         </div>
       </div>
     </div>
   )
 }
-
-export default JudgeVerdict
